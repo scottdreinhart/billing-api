@@ -307,6 +307,43 @@ http://localhost:3000/docs
 | `GET` | `/reports/ltv` | Customer lifetime value segmented by acquisition channel |
 | `GET` | `/reports/arpu` | Average revenue per user over time |
 
+### Client UI Pairings
+
+Endpoints that pair directly with a visible UI element in game clients or the Game Billing admin app:
+
+| UI Element | Icon / Control | Endpoint | Surface |
+|---|---|---|---|
+| Plan selection cards | Radio button group with tier badges | `GET /pricing-tiers` | Game client — upgrade prompt |
+| "Subscribe" button | Credit card icon + CTA | `POST /subscriptions` | Game client — checkout |
+| "Cancel Subscription" button | ✕ icon with confirmation modal | `DELETE /subscriptions/:id` | Game client — account settings |
+| Pause / Resume toggle | ⏸ / ▶ toggle switch | `PATCH /subscriptions/:id` | Game client — subscription card |
+| "Renew Now" button | 🔄 refresh icon | `POST /subscriptions/:id/renew` | Game client — expiring subscription banner |
+| "Checkout" button | Shopping cart icon | `POST /payment-intents` | Game client — purchase flow |
+| "Confirm Payment" button | ✅ checkmark CTA | `POST /payment-intents/:id/confirm` | Game client — payment confirmation step |
+| "Cancel Payment" link | ✕ text link | `POST /payment-intents/:id/cancel` | Game client — payment confirmation step |
+| Lock / Unlock overlay | 🔒 padlock icon on content cards | `GET /entitlements/check` | Game client — locked themes, features, games |
+| Saved payment card row | 💳 card type icon (Visa, MC, etc.) | `GET /payment-methods` | Game client — payment settings |
+| "Add Payment Method" button | ➕ plus icon | `POST /payment-methods` | Game client — payment settings |
+| Delete card button | 🗑 trash icon on card row | `DELETE /payment-methods/:id` | Game client — payment settings |
+| Default card selector | ⭐ star / radio button on card row | `POST /payment-methods/:id/default` | Game client — payment settings |
+| Promo code input | Text field + "Apply" button with 🏷 tag icon | `POST /coupons/validate` | Game client — checkout |
+| "Redeem" button | 🎟 ticket icon | `POST /coupons/:id/redeem` | Game client — checkout (after validation) |
+| Download invoice button | ⬇ download arrow icon | `GET /invoices/:id/pdf` | Game client — purchase history row |
+| Email invoice button | ✉ envelope icon | `POST /invoices/:id/send` | Admin app — invoice detail view |
+| "Request Refund" button | ↩ return arrow icon | `POST /refunds` | Game client — purchase detail view |
+| Approve refund button | ✅ green checkmark | `POST /refunds/:id/approve` | Admin app — refund queue row |
+| Reject refund button | ❌ red X | `POST /refunds/:id/reject` | Admin app — refund queue row |
+| Usage meter | Progress bar / circular gauge | `GET /usage/limits` | Game client — account dashboard |
+| Usage history sparkline | 📊 mini chart | `GET /usage/history` | Game client — usage detail view |
+| Receipt row | 🧾 receipt icon in list | `GET /purchases` | Game client — purchase history |
+| MRR chart | 📈 line chart widget | `GET /reports/mrr` | Admin app — revenue dashboard |
+| Churn rate card | 📉 metric card with trend arrow | `GET /reports/churn` | Admin app — analytics dashboard |
+| Revenue summary card | 💰 dollar icon metric card | `GET /reports/revenue` | Admin app — analytics dashboard |
+| Audit log timeline | 📋 event list with user avatars | `GET /audit-log` | Admin app — audit view |
+| Export CSV button | ⬇ download icon + "Export" label | `GET /audit-log/export` | Admin app — audit toolbar |
+| Currency selector | 🌐 dropdown with currency codes | `GET /currencies` | Game client — checkout (region) |
+| Tax line item | Auto-calculated row in checkout summary | `GET /tax/estimate` | Game client — checkout summary |
+
 ## Architecture
 
 This project enforces seven complementary design principles:
