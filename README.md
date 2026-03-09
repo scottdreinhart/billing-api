@@ -24,7 +24,7 @@ See [LICENSE](LICENSE) file for complete terms and conditions.
 > [!CAUTION]
 > **LICENSE TRANSITION PLANNED** — This project is currently proprietary. The license will change to open source once the project has reached a suitable state to allow for it.
 
-[Project Structure](#project-structure) · [Getting Started](#getting-started) · [Tech Stack](#tech-stack) · [API Reference](#api-reference) · [Architecture](#architecture) · [Contributing](#contributing) · [Portfolio Services](#portfolio-services) · [Portfolio Games](#portfolio-games)
+[Project Structure](#project-structure) · [Getting Started](#getting-started) · [Tech Stack](#tech-stack) · [API Reference](#api-reference) · [Architecture](#architecture) · [Environment Variables](#environment-variables) · [Authentication](#authentication) · [Error Handling](#error-handling) · [Rate Limiting](#rate-limiting) · [Data Models](#data-models) · [Deployment](#deployment) · [Supported Clients](#supported-clients) · [Versioning](#versioning) · [Remaining Work](#remaining-work) · [Future Improvements](#future-improvements) · [Contributing](#contributing) · [Portfolio Services](#portfolio-services) · [Portfolio Games](#portfolio-games)
 
 ## Project Structure
 
@@ -384,6 +384,296 @@ This project enforces seven complementary design principles:
    - All inputs validated with Zod schemas in the domain layer
    - Fastify route schemas auto-generate OpenAPI docs via `@fastify/swagger`
    - **Benefit**: Single source of truth for validation, serialization, and documentation
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+| Variable | Description | Type | Default | Required |
+| -------- | ----------- | ---- | ------- | -------- |
+| `PORT` | HTTP server port | `number` | `3000` | No |
+| `HOST` | Bind address | `string` | `0.0.0.0` | No |
+| `NODE_ENV` | Runtime environment (`development`, `staging`, `production`) | `string` | `development` | No |
+| `LOG_LEVEL` | Pino log level (`fatal`, `error`, `warn`, `info`, `debug`, `trace`) | `string` | `info` | No |
+| `DATABASE_URL` | PostgreSQL connection string | `string` | — | **Yes** (production) |
+| `API_KEY` | Service-to-service API key for internal callers | `string` | — | **Yes** (production) |
+| `JWT_SECRET` | Secret used to sign and verify JWT access tokens | `string` | — | **Yes** (production) |
+| `STRIPE_SECRET_KEY` | Stripe API secret key for payment processing | `string` | — | **Yes** (production) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret for event verification | `string` | — | **Yes** (production) |
+| `APPLE_SHARED_SECRET` | Apple App Store shared secret for IAP receipt validation | `string` | — | No |
+| `GOOGLE_SERVICE_ACCOUNT` | Path to Google Play service account JSON for IAP verification | `string` | — | No |
+| `CORS_ORIGIN` | Allowed CORS origin(s), comma-separated | `string` | `*` | No |
+| `RATE_LIMIT_MAX` | Max requests per rate-limit window | `number` | `100` | No |
+| `RATE_LIMIT_WINDOW_MS` | Rate-limit window duration in milliseconds | `number` | `60000` | No |
+
+## Authentication
+
+All non-public endpoints require authentication. The API supports two authentication methods:
+
+### JWT Bearer Tokens (Game Clients & Admin Apps)
+
+Game clients and admin apps authenticate by sending a JWT in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+- Tokens are issued by the auth service upon successful login
+- Tokens contain the user's `sub` (user ID) and `roles` array
+- Tokens expire after a configurable TTL (default: 1 hour)
+- Refresh tokens are used to obtain new access tokens without re-authentication
+
+### API Keys (Service-to-Service)
+
+Internal services authenticate with a static API key in the `X-API-Key` header:
+
+```
+X-API-Key: <key>
+```
+
+- Used by admin apps and other portfolio APIs for server-to-server calls
+- Keys are configured via the `API_KEY` environment variable
+- API key requests bypass user-scoped authorization checks
+
+### Public Endpoints
+
+The following endpoints do not require authentication:
+
+| Endpoint | Purpose |
+| -------- | ------- |
+| `GET /health` | Health check |
+| `GET /ready` | Readiness probe |
+| `GET /docs` | Swagger UI |
+| `GET /docs/json` | OpenAPI spec |
+
+## Error Handling
+
+All error responses follow a consistent JSON structure:
+
+```json
+{
+  "statusCode": 422,
+  "error": "Unprocessable Entity",
+  "message": "Subscription plan 'premium-annual' is not available in region 'EU'",
+  "code": "PLAN_NOT_AVAILABLE_IN_REGION"
+}
+```
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `statusCode` | `number` | HTTP status code |
+| `error` | `string` | HTTP status text |
+| `message` | `string` | Human-readable error description |
+| `code` | `string?` | Machine-readable domain error code (optional) |
+
+### HTTP Status Codes
+
+| Status | Meaning | Example |
+| ------ | ------- | ------- |
+| `400` | Bad Request | Malformed JSON body or missing required field |
+| `401` | Unauthorized | Missing or expired JWT / invalid API key |
+| `403` | Forbidden | Valid auth but insufficient role for the operation |
+| `404` | Not Found | Subscription or payment method not found |
+| `409` | Conflict | Duplicate subscription for the same plan |
+| `422` | Unprocessable Entity | Business rule violation (e.g., plan not available in region) |
+| `429` | Too Many Requests | Rate limit exceeded |
+| `500` | Internal Server Error | Unexpected failure |
+
+### Domain Error Codes
+
+| Code | Description |
+| ---- | ----------- |
+| `SUBSCRIPTION_NOT_FOUND` | No subscription exists with the given ID |
+| `SUBSCRIPTION_ALREADY_ACTIVE` | User already has an active subscription for this plan |
+| `SUBSCRIPTION_CANCELED` | Cannot modify a canceled subscription |
+| `PAYMENT_DECLINED` | Payment provider declined the transaction |
+| `PAYMENT_METHOD_INVALID` | Payment method is expired or invalid |
+| `PLAN_NOT_AVAILABLE_IN_REGION` | Requested pricing plan is not offered in the user's region |
+| `ENTITLEMENT_ALREADY_GRANTED` | User already owns this entitlement |
+| `COUPON_EXPIRED` | Promo code has passed its expiry date |
+| `COUPON_USAGE_EXCEEDED` | Promo code has reached its maximum redemption count |
+| `INVOICE_ALREADY_PAID` | Invoice has already been settled |
+| `INSUFFICIENT_BALANCE` | Account balance is insufficient for the charge |
+| `RECEIPT_VALIDATION_FAILED` | Apple/Google IAP receipt could not be verified |
+| `WEBHOOK_SIGNATURE_INVALID` | Stripe webhook signature verification failed |
+
+## Rate Limiting
+
+Rate limiting is enforced via `@fastify/rate-limit` to protect against abuse:
+
+| Scope | Limit | Window | Notes |
+| ----- | ----- | ------ | ----- |
+| **Global default** | 100 requests | 60 seconds | Per IP address |
+| **Authentication endpoints** | 10 requests | 60 seconds | Login / token refresh |
+| **Payment processing** | 20 requests | 60 seconds | Create subscription, charge |
+| **Webhook receivers** | 500 requests | 60 seconds | Stripe / IAP webhook callbacks |
+| **Health / readiness** | Unlimited | — | Excluded from rate limiting |
+
+Rate-limited responses include standard headers:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 47
+X-RateLimit-Reset: 1719000060
+Retry-After: 12
+```
+
+When the limit is exceeded, the API returns `429 Too Many Requests` with the error body above.
+
+## Data Models
+
+Planned domain entities for the billing system. These will be implemented as Zod schemas in `src/domain/types.ts`:
+
+### Subscription
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | `string (uuid)` | Unique subscription identifier |
+| `userId` | `string (uuid)` | Owner's user ID |
+| `planId` | `string` | Reference to the pricing plan |
+| `status` | `'active' \| 'canceled' \| 'past_due' \| 'trialing' \| 'paused'` | Current state |
+| `currentPeriodStart` | `string (ISO 8601)` | Start of the current billing cycle |
+| `currentPeriodEnd` | `string (ISO 8601)` | End of the current billing cycle |
+| `cancelAtPeriodEnd` | `boolean` | Whether to cancel at period end |
+| `stripeSubscriptionId` | `string?` | External Stripe subscription ID |
+| `createdAt` | `string (ISO 8601)` | Creation timestamp |
+| `updatedAt` | `string (ISO 8601)` | Last update timestamp |
+
+### PricingTier
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | `string` | Plan identifier (e.g., `free`, `premium`, `premium-annual`) |
+| `name` | `string` | Display name |
+| `description` | `string` | Plan description |
+| `priceMonthly` | `number` | Monthly price in cents |
+| `priceAnnual` | `number?` | Annual price in cents (if offered) |
+| `currency` | `string` | ISO 4217 currency code |
+| `features` | `string[]` | List of included features |
+| `maxGames` | `number?` | Game limit (`null` = unlimited) |
+| `adFree` | `boolean` | Whether ads are removed |
+| `active` | `boolean` | Whether the plan is currently offered |
+
+### PaymentMethod
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | `string (uuid)` | Payment method identifier |
+| `userId` | `string (uuid)` | Owner's user ID |
+| `type` | `'card' \| 'paypal' \| 'apple_pay' \| 'google_pay'` | Payment type |
+| `last4` | `string` | Last 4 digits (cards) or masked identifier |
+| `expiryMonth` | `number?` | Card expiration month |
+| `expiryYear` | `number?` | Card expiration year |
+| `isDefault` | `boolean` | Whether this is the default payment method |
+| `stripePaymentMethodId` | `string?` | External Stripe ID |
+
+### Entitlement
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | `string (uuid)` | Entitlement identifier |
+| `userId` | `string (uuid)` | Owner's user ID |
+| `type` | `'subscription' \| 'one_time' \| 'iap'` | How it was granted |
+| `productId` | `string` | Product or feature identifier |
+| `grantedAt` | `string (ISO 8601)` | When access was granted |
+| `expiresAt` | `string (ISO 8601)?` | When access expires (`null` = permanent) |
+| `source` | `'stripe' \| 'apple' \| 'google' \| 'promo'` | Purchase source |
+
+### Coupon
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | `string (uuid)` | Coupon identifier |
+| `code` | `string` | Promo code string |
+| `discountType` | `'percent' \| 'fixed'` | Discount type |
+| `discountValue` | `number` | Percentage (0–100) or fixed amount in cents |
+| `maxRedemptions` | `number?` | Maximum uses (`null` = unlimited) |
+| `currentRedemptions` | `number` | Times redeemed so far |
+| `expiresAt` | `string (ISO 8601)?` | Expiry date |
+| `active` | `boolean` | Whether the coupon is currently valid |
+
+### Invoice
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | `string (uuid)` | Invoice identifier |
+| `userId` | `string (uuid)` | Owner's user ID |
+| `subscriptionId` | `string (uuid)?` | Related subscription |
+| `amountDue` | `number` | Amount due in cents |
+| `amountPaid` | `number` | Amount paid in cents |
+| `currency` | `string` | ISO 4217 currency code |
+| `status` | `'draft' \| 'open' \| 'paid' \| 'void' \| 'uncollectible'` | Invoice state |
+| `issuedAt` | `string (ISO 8601)` | Issue date |
+| `paidAt` | `string (ISO 8601)?` | Payment date |
+| `pdfUrl` | `string?` | URL to downloadable PDF |
+
+## Deployment
+
+### Docker (Recommended)
+
+```bash
+# Build the production image
+docker build -t billing-api .
+
+# Run with environment variables
+docker run -d \
+  --name billing-api \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL=postgresql://user:pass@db:5432/billing \
+  -e JWT_SECRET=your-jwt-secret \
+  -e STRIPE_SECRET_KEY=sk_live_... \
+  -e STRIPE_WEBHOOK_SECRET=whsec_... \
+  billing-api
+```
+
+### Health Checks
+
+Configure your orchestrator (Docker Compose, Kubernetes, ECS) to use the built-in probes:
+
+| Probe | Endpoint | Interval | Timeout | Failure Threshold |
+| ----- | -------- | -------- | ------- | ----------------- |
+| Liveness | `GET /health` | 30s | 5s | 3 |
+| Readiness | `GET /ready` | 10s | 5s | 3 |
+
+### Production Checklist
+
+- [ ] Set `NODE_ENV=production`
+- [ ] Provide all **required** environment variables (see [Environment Variables](#environment-variables))
+- [ ] Configure database connection pooling (recommended: 10–20 connections)
+- [ ] Enable TLS termination at the load balancer / reverse proxy
+- [ ] Set up database migrations before first deploy
+- [ ] Configure log aggregation (Pino outputs structured JSON)
+- [ ] Set up monitoring alerts on `/health` and `/ready`
+- [ ] Enable CORS for specific origins (do not use `*` in production)
+- [ ] Configure Stripe webhook endpoint URL in the Stripe dashboard
+
+## Supported Clients
+
+This API is consumed by the following applications:
+
+| Client | Type | Description |
+| ------ | ---- | ----------- |
+| **[💳 Game Billing](https://github.com/scottdreinhart/game-billing)** | Admin App | Payment dashboard, subscription management, revenue reports |
+| **All portfolio games** | Game Clients | Subscription status checks, entitlement verification, IAP receipt validation |
+| **[🎨 Themes API](https://github.com/scottdreinhart/themes-api)** | API (internal) | Verifying purchase entitlements before granting theme downloads |
+| **[📺 Ads API](https://github.com/scottdreinhart/ads-api)** | API (internal) | Checking subscription tier to determine ad-free status |
+| **[🏆 Rankings API](https://github.com/scottdreinhart/rankings-api)** | API (internal) | Checking entitlements for premium leaderboard features |
+
+## Versioning
+
+The API uses **URL-prefix versioning**:
+
+```
+https://api.example.com/v1/subscriptions
+https://api.example.com/v1/pricing-tiers
+```
+
+- All current endpoints are under `/v1/`
+- Breaking changes will be introduced under `/v2/` with a deprecation notice on `/v1/`
+- Non-breaking additions (new fields, new endpoints) are added to the current version
+- Deprecated versions will be supported for a minimum of **6 months** after the successor is released
+- The OpenAPI spec at `/docs/json` includes the version in its `info.version` field
 
 ## Remaining Work
 
