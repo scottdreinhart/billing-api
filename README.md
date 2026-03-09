@@ -231,6 +231,56 @@ http://localhost:3000/docs
 | `POST` | `/refunds/:id/approve` | Approve a pending refund (admin) |
 | `POST` | `/refunds/:id/reject` | Reject a pending refund with reason (admin) |
 
+#### Payment Methods
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/payment-methods` | Store a new payment method (card, bank, wallet) for a user |
+| `GET` | `/payment-methods` | List user's saved payment methods |
+| `GET` | `/payment-methods/:id` | Get payment method details (masked card number, expiry, type) |
+| `PATCH` | `/payment-methods/:id` | Update payment method metadata (billing address, default flag) |
+| `DELETE` | `/payment-methods/:id` | Remove a saved payment method |
+| `POST` | `/payment-methods/:id/default` | Set a payment method as the user's default |
+
+#### Coupons & Promo Codes
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/coupons` | Create a coupon (percentage or fixed discount, usage limit, expiry) |
+| `GET` | `/coupons` | List coupons (paginated, filterable by status/type) |
+| `GET` | `/coupons/:id` | Get coupon details and redemption stats |
+| `PATCH` | `/coupons/:id` | Update coupon limits, expiry, or active status |
+| `DELETE` | `/coupons/:id` | Deactivate a coupon |
+| `POST` | `/coupons/validate` | Validate a promo code and return discount details (`?code=&productId=`) |
+| `POST` | `/coupons/:id/redeem` | Redeem a coupon against a purchase |
+
+#### Invoices
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/invoices` | List invoices for a user (paginated, filterable by date/status) |
+| `GET` | `/invoices/:id` | Get invoice details (line items, taxes, totals) |
+| `GET` | `/invoices/:id/pdf` | Download invoice as PDF |
+| `POST` | `/invoices/:id/send` | Email an invoice to the user |
+| `GET` | `/invoices/upcoming` | Preview next recurring invoice for a subscription |
+
+#### Tax & Currency
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/tax/estimate` | Estimate tax for a purchase (`?amount=&country=&region=`) |
+| `GET` | `/currencies` | List supported currencies with exchange rates |
+| `GET` | `/currencies/:code` | Get current exchange rate for a specific currency |
+
+#### Usage & Metering
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/usage` | Record a usage event (user, feature, quantity, timestamp) |
+| `GET` | `/usage` | Get usage summary for a user in the current billing period |
+| `GET` | `/usage/history` | Get historical usage data (paginated, filterable by feature/date range) |
+| `GET` | `/usage/limits` | Get remaining usage allowance against the user's current plan |
+
 #### Webhooks
 
 | Method | Path | Description |
@@ -238,6 +288,24 @@ http://localhost:3000/docs
 | `POST` | `/webhooks/stripe` | Handle Stripe webhook events (payment success/failure, subscription changes) |
 | `POST` | `/webhooks/app-store` | Handle Apple App Store server notifications |
 | `POST` | `/webhooks/play-store` | Handle Google Play billing notifications |
+
+#### Audit Log
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/audit-log` | List billing events (paginated, filterable by user/event type/date range) |
+| `GET` | `/audit-log/:id` | Get full details of a billing event (who, what, when, before/after state) |
+| `GET` | `/audit-log/export` | Export audit log as CSV for a date range |
+
+#### Revenue Reports
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/reports/revenue` | Revenue summary (filterable by date range, product, tier) |
+| `GET` | `/reports/mrr` | Monthly recurring revenue breakdown |
+| `GET` | `/reports/churn` | Churn rate and cancellation reasons |
+| `GET` | `/reports/ltv` | Customer lifetime value segmented by acquisition channel |
+| `GET` | `/reports/arpu` | Average revenue per user over time |
 
 ## Architecture
 
