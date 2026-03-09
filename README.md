@@ -172,6 +172,73 @@ http://localhost:3000/docs
 | `GET` | `/ready` | Readiness check — returns `{ ready: true }` when all dependencies are available |
 | `GET` | `/docs` | Swagger UI — interactive API documentation |
 
+### Proposed Endpoints
+
+#### Subscriptions
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/subscriptions` | Create a new subscription for a user |
+| `GET` | `/subscriptions` | List subscriptions (paginated, filterable by status/plan) |
+| `GET` | `/subscriptions/:id` | Get subscription details by ID |
+| `PATCH` | `/subscriptions/:id` | Update subscription (change plan, cancel, pause) |
+| `DELETE` | `/subscriptions/:id` | Cancel and remove a subscription |
+| `POST` | `/subscriptions/:id/renew` | Manually trigger subscription renewal |
+
+#### Pricing Tiers
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/pricing-tiers` | Create a pricing tier (free, premium, etc.) |
+| `GET` | `/pricing-tiers` | List all pricing tiers |
+| `GET` | `/pricing-tiers/:id` | Get pricing tier details |
+| `PATCH` | `/pricing-tiers/:id` | Update pricing tier (price, features, limits) |
+| `DELETE` | `/pricing-tiers/:id` | Archive a pricing tier |
+
+#### Payment Intents
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/payment-intents` | Create a payment intent (initiates checkout flow) |
+| `GET` | `/payment-intents/:id` | Get payment intent status |
+| `POST` | `/payment-intents/:id/confirm` | Confirm a pending payment intent |
+| `POST` | `/payment-intents/:id/cancel` | Cancel an unconfirmed payment intent |
+
+#### Entitlements
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/entitlements` | List entitlements for a user (games, themes, features) |
+| `GET` | `/entitlements/check` | Check if user is entitled to a specific product (`?userId=&productId=`) |
+| `POST` | `/entitlements` | Grant an entitlement to a user |
+| `DELETE` | `/entitlements/:id` | Revoke an entitlement |
+
+#### Purchase History
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/purchases` | List purchase receipts (paginated, filterable by date/product) |
+| `GET` | `/purchases/:id` | Get purchase receipt details |
+| `GET` | `/purchases/:id/invoice` | Generate downloadable invoice for a purchase |
+
+#### Refunds
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/refunds` | Initiate a refund for a purchase |
+| `GET` | `/refunds` | List refund requests (paginated, filterable by status) |
+| `GET` | `/refunds/:id` | Get refund status and details |
+| `POST` | `/refunds/:id/approve` | Approve a pending refund (admin) |
+| `POST` | `/refunds/:id/reject` | Reject a pending refund with reason (admin) |
+
+#### Webhooks
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/webhooks/stripe` | Handle Stripe webhook events (payment success/failure, subscription changes) |
+| `POST` | `/webhooks/app-store` | Handle Apple App Store server notifications |
+| `POST` | `/webhooks/play-store` | Handle Google Play billing notifications |
+
 ## Architecture
 
 This project enforces seven complementary design principles:
@@ -238,10 +305,16 @@ This project enforces seven complementary design principles:
 
 ## Future Improvements
 
-- [ ] **WebSocket support** — real-time event streaming for live updates
-- [ ] **Message queue integration** — async job processing with BullMQ or similar
-- [ ] **Caching layer** — Redis-backed response caching for high-traffic endpoints
-- [ ] **Multi-tenant support** — serve all portfolio games from a single API instance
+- [ ] **Stripe integration** — connect payment intents and subscriptions to Stripe's API for real payment processing
+- [ ] **Apple / Google IAP verification** — server-side receipt validation for in-app purchases from mobile game clients
+- [ ] **Proration engine** — calculate mid-cycle plan changes (upgrades, downgrades) with accurate billing adjustments
+- [ ] **Usage-based billing** — track metered features (API calls, storage, AI hints) and bill per-unit overages
+- [ ] **Dunning management** — automated retry logic for failed payments with configurable escalation (email → grace period → suspension)
+- [ ] **Invoice PDF generation** — render purchase receipts as downloadable PDF invoices with branding
+- [ ] **Revenue analytics dashboard** — aggregate MRR, churn rate, ARPU, and LTV metrics via a reporting endpoint
+- [ ] **Webhook replay & audit log** — store all inbound webhook events and allow manual replay for debugging
+- [ ] **Multi-currency support** — accept and display prices in multiple currencies with exchange-rate conversion
+- [ ] **Coupon & promo codes** — create discount codes redeemable during checkout with usage limits and expiry
 
 ## Portfolio Services
 
