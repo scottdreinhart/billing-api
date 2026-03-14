@@ -1,8 +1,8 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
-import reactPlugin from 'eslint-plugin-react'
-import reactHooksPlugin from 'eslint-plugin-react-hooks'
-import jsxA11yPlugin from 'eslint-plugin-jsx-a11y'
+// No React for this repo
+// No React-hooks for this repo
+// No A11y for this repo
 import prettierConfig from 'eslint-config-prettier'
 import boundaries from 'eslint-plugin-boundaries'
 
@@ -116,3 +116,4 @@ export default [
     ignores: ['dist/', 'node_modules/', 'electron/', 'android/'],
   },
 ]
+

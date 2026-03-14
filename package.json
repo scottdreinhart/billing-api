@@ -18,12 +18,10 @@
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "preview": "node dist/server.js",
     "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --write src/",
     "format:check": "prettier --check src/",
     "typecheck": "tsc",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck",
-    "fix": "pnpm lint:fix && pnpm format",
+    "fix": "pnpm eslint:fix && pnpm prettier:fix",
     "validate": "pnpm check && pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -34,7 +32,8 @@
     "reinstall": "pnpm clean:all && pnpm install",
     "prebuild": "pnpm clean",
     "db:migrate": "echo 'TODO: add migration runner'",
-    "db:seed": "echo 'TODO: add seed script'"
+    "db:seed": "echo 'TODO: add seed script'",
+    "check:input": "bash scripts/check-input-controls.sh"
   },
   "dependencies": {
     "@fastify/autoload": "6.3.1",

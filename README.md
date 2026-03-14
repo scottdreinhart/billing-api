@@ -98,44 +98,16 @@ pnpm preview
 ```bash
 # Individual tools
 pnpm lint           # ESLint — check for issues
-pnpm lint:fix       # ESLint — auto-fix issues
-pnpm format         # Prettier — format all source files
+pnpm eslint:fix     # ESLint — auto-fix issues
+pnpm prettier:fix   # Prettier — format all source files
 pnpm format:check   # Prettier — check formatting without writing
 pnpm typecheck      # TypeScript type check (tsc --noEmit)
 
 # Chains
 pnpm check          # lint + format:check + typecheck in one pass (quality gate)
-pnpm fix            # lint:fix + format in one pass (auto-fix everything)
+pnpm fix            # eslint:fix + prettier:fix in one pass (auto-fix everything)
 pnpm validate       # check + build — full pre-push validation
 ```
-
-### Testing
-
-```bash
-pnpm test           # Run all tests once
-pnpm test:watch     # Watch mode — re-run on file changes
-pnpm test:coverage  # Run with V8 coverage report
-```
-
-### Docker
-
-```bash
-# Build the image
-docker build -t billing-api .
-
-# Run the container
-docker run -p 3000:3000 billing-api
-```
-
-### Cleanup & Maintenance
-
-```bash
-pnpm clean          # wipe dist/ build output
-pnpm clean:node     # delete node_modules only
-pnpm clean:all      # nuclear — dist/ + node_modules/
-pnpm reinstall      # clean:all + pnpm install
-```
-
 ## Tech Stack
 
 | Technology | Version | Purpose |
@@ -685,19 +657,21 @@ https://api.example.com/v1/pricing-tiers
 - [ ] **Authentication** — JWT or API key verification middleware
 - [ ] **Authorization** — role-based access control for admin vs. client operations
 
-### Code Quality & Testing
+### Code Quality
 
-- [ ] **Unit tests** — domain functions and use-case services
-- [ ] **Integration tests** — route handlers with database fixtures
-- [ ] **E2E tests** — full request lifecycle with Supertest or Fastify inject
+```bash
+# Individual tools
+pnpm lint           # ESLint — check for issues
+pnpm eslint:fix     # ESLint — auto-fix issues
+pnpm prettier:fix   # Prettier — format all source files
+pnpm format:check   # Prettier — check formatting without writing
+pnpm typecheck      # TypeScript type check (tsc --noEmit)
 
-### DevOps & Deployment
-
-- [ ] **CI/CD pipeline** — GitHub Actions workflow for lint → test → build → deploy
-- [ ] **Database migrations** — version-controlled schema changes
-- [ ] **Environment configs** — staging, production, and preview environments
-- [ ] **Monitoring** — health-check alerts, error tracking, APM integration
-
+# Chains
+pnpm check          # lint + format:check + typecheck in one pass (quality gate)
+pnpm fix            # eslint:fix + prettier:fix in one pass (auto-fix everything)
+pnpm validate       # check + build — full pre-push validation
+```
 ## Future Improvements
 
 - [ ] **Stripe integration** — connect payment intents and subscriptions to Stripe's API for real payment processing
